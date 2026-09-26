@@ -1,55 +1,36 @@
-name: Temporary photo fetch
+# This is a basic workflow to help you get started with Actions
+
+name: CI
+
+# Controls when the workflow will run
 on:
+  # Triggers the workflow on push or pull request events but only for the "main" branch
   push:
     branches: [ "main" ]
-permissions:
-  contents: read
+  pull_request:
+    branches: [ "main" ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  fetch:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
     runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that can run sequentially or in parallel
     steps:
-      - name: Install dependencies
-        run: python -m pip install --quiet pillow requests
-      - name: Download and encode photos
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v4
+
+      # Runs a single command using the runners shell
+      - name: Run a one-line script
+        run: echo Hello, world!
+
+      # Runs a set of commands using the runners shell
+      - name: Run a multi-line script
         run: |
-          python - <<'PY'
-          import base64,json,requests
-          from io import BytesIO
-          from PIL import Image,ImageOps
-          from concurrent.futures import ThreadPoolExecutor,as_completed
-          sources={
-            2016:'https://knownway.com/images/catalog/1642024838.jpg',
-            2017:'https://trekkingmania.ru/aimages/858/c1/img-1530.jpg',
-            2018:'https://welcome.mosreg.ru/cache/thumbs/thumb_1920__2690176883.jpg',
-            2019:'https://www.pv-muenchen.de/fileadmin/Medien_PV/News/2025/PV_in_den_Medien/Olympiapark_c_pixabay_3_2_web.jpg',
-            2020:'https://mf.b37mrtl.ru/rbthmedia/images/2019.01/original/5c4b25f085600a7dd23752b1.jpg',
-            2021:'https://sobory.ru/pic/01750/01798_20150608_200815.jpg',
-            2022:'https://mf.b37mrtl.ru/rbthmedia/images/2022.10/original/6357a7fc6a1fe1625d20b4eb.jpg',
-            2023:'https://static.tildacdn.com/tild3735-6536-4132-a530-313762656465/alexander-smagin-MEW.jpg',
-            2024:'https://visitrussia.com/assets/thumbnails/4c/4c0d15ff2f180769cb0020b6d1859ee5.jpg',
-            2025:'https://www.russia.tours/images/gallery/excursion/34/1931/h500.jpg?_=3666927798'}
-          headers={'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/143 Safari/537.36','Accept':'image/avif,image/webp,image/apng,image/*,*/*;q=0.8'}
-          def one(item):
-              y,u=item
-              r=requests.get(u,timeout=(8,18),headers=headers);r.raise_for_status()
-              im=ImageOps.exif_transpose(Image.open(BytesIO(r.content))).convert('RGB')
-              im.thumbnail((720,480),Image.Resampling.LANCZOS)
-              b=BytesIO();im.save(b,'WEBP',quality=72,method=6)
-              return y,'data:image/webp;base64,'+base64.b64encode(b.getvalue()).decode(),len(r.content),len(b.getvalue())
-          out={}; errors={}
-          with ThreadPoolExecutor(max_workers=10) as ex:
-              futs={ex.submit(one,i):i[0] for i in sources.items()}
-              for fut in as_completed(futs):
-                  y=futs[fut]
-                  try:
-                      yy,data,a,b=fut.result();out[str(yy)]=data;print(yy,a,'->',b)
-                  except Exception as e:
-                      errors[str(y)]=repr(e);print('ERROR',y,repr(e))
-          json.dump({'photos':out,'errors':errors},open('photos.json','w',encoding='utf-8'))
-          print('got',sorted(out),'errors',errors)
-          PY
-      - uses: actions/upload-artifact@v4
-        with:
-          name: year-photos
-          path: photos.json
-          retention-days: 1
+          echo Add other actions to build,
+          echo test, and deploy your project.
