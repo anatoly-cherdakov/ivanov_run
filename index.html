@@ -2191,4 +2191,95 @@ html body main .site-header h1,html body main .site-header .site-switch,html bod
 .geo-bottom-countries .foreign-country{border-left-color:#205d78;background:#f1f6fa}
 .geo-bottom-countries .geo-country-title{display:block;font-size:17px;font-weight:700;color:#174d25;margin:0 0 5px}
 .geo-bottom-countries .foreign-country .geo-country-title{color:#205d78}
-</style></body></html>
+</style><style id="INTERACTIVE_LOCATION_STYLE">
+body main .geo-bottom.geo-regions{display:grid!important;grid-template-columns:1fr!important;gap:16px!important;text-align:left!important}
+.geo-region{width:100%;min-width:0}
+.geo-region h3{margin:0 0 8px;font-size:16px;color:#263d2b}
+.geo-region h3 span{font-size:12px;font-weight:400;color:#68756b;margin-left:8px;white-space:nowrap}
+.geo-region ul{display:flex;flex-wrap:wrap;gap:6px 9px;list-style:none;margin:0;padding:0}
+.geo-region li{display:inline-flex;padding:0;border:0;background:transparent;font-size:12px}
+.geo-location{display:inline-flex;align-items:baseline;gap:7px;padding:5px 8px;border:1px solid #d5dfd5;border-radius:7px;background:white;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.geo-location b{color:#19742c;white-space:nowrap}
+.geo-location:hover,.geo-location[aria-pressed="true"]{background:#e2f0de;border-color:#19742c}
+.geo-location:focus-visible{outline:3px solid #75ad80;outline-offset:2px}
+.race-marker-selected{display:block;box-sizing:border-box;width:26px;height:26px;border-radius:50%;background:#f4be29;border:3px solid #205d78;box-shadow:0 0 0 5px rgba(32,93,120,.2)}
+.location-popup{min-width:220px;max-width:340px;font-size:13px}
+.location-popup ul{list-style:none;padding:0;margin:10px 0 0;max-height:260px;overflow-y:auto}
+.location-popup li{display:grid;grid-template-columns:82px 1fr;gap:8px;padding:7px 0;border-top:1px solid #e2e7e2}
+.location-popup time{font-weight:700;white-space:nowrap}
+.location-popup small{display:block;color:#66736a;margin-top:3px}
+@media(max-width:700px){.geo-region li{font-size:11px}.location-popup{max-width:260px}}
+</style>
+<script id="INTERACTIVE_LOCATION_PICKER">
+(function(){
+'use strict';
+function init(){
+ const host=document.querySelector('.geo-bottom-countries'),map=window.raceMap,clusters=window.raceClusters;
+ if(!host||!map||!clusters)return;
+ host.classList.add('geo-regions');
+ let groups=new Map(),active=null,selectedKey=null;
+ const selectedIcon=L.divIcon({className:'',html:'<span class="race-marker-selected"></span>',iconSize:[26,26],iconAnchor:[13,13]});
+ function locationName(raw){
+  const names=[[/Малая Вишера/i,'Малая Вишера — Большая Вишера'],[/Красная поляна/i,'Красная Поляна'],[/Пушкин/i,'Пушкин'],[/Спас-Каменка/i,'Спас-Каменка'],[/Зв[её]здный городок/i,'Звёздный городок']];
+  for(const [re,name] of names)if(re.test(raw))return name;
+  return raw.split(',').at(-1).trim();
+ }
+ function parse(info){
+  const m=info.match(/^(.*?) (\d{1,2}(?:[–-]\d{1,2})?\.\d{2}\.\d{4}) · (.*?) · (.*)$/);
+  if(!m)return null;
+  const country=/Германия|Мюнхен/i.test(m[4])?'Германия':'Россия',name=locationName(m[4]);
+  const parts=m[2].split('.'),sort=parts[2]+parts[1]+parts[0].split(/[–-]/)[0].padStart(2,'0');
+  return {key:country+'|'+name,country,name,event:m[1],date:m[2],detail:m[3],sort};
+ }
+ function plural(n){return n%10===1&&n%100!==11?'старт':n%10>=2&&n%10<=4&&(n%100<12||n%100>14)?'старта':'стартов'}
+ function popup(g){
+  const el=document.createElement('div');el.className='location-popup';
+  const title=document.createElement('b');title.textContent=g.name;
+  const count=document.createElement('div');count.textContent=g.races.length+' '+plural(g.races.length);
+  const list=document.createElement('ul');
+  for(const r of [...g.races].sort((a,b)=>b.sort.localeCompare(a.sort))){
+   const li=document.createElement('li'),date=document.createElement('time'),text=document.createElement('span'),detail=document.createElement('small');
+   date.textContent=r.date;text.textContent=r.event;detail.textContent=r.detail;text.append(detail);li.append(date,text);list.append(li);
+  }
+  el.append(title,count,list);return el;
+ }
+ function select(key,scroll){
+  const g=groups.get(key);if(!g)return;selectedKey=key;
+  host.querySelectorAll('.geo-location').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.location===key)));
+  if(active)map.removeLayer(active);
+  map.stop();const positions=g.markers.map(m=>m.getLatLng());
+  map.fitBounds(L.latLngBounds(positions),{padding:[35,35],maxZoom:13,animate:false});
+  active=L.marker(positions[0],{icon:selectedIcon,zIndexOffset:1000}).addTo(map);
+  active.bindPopup(popup(g),{maxWidth:360,autoPan:true}).openPopup();
+  if(scroll)document.getElementById('race-map').scrollIntoView({behavior:'smooth',block:'center'});
+ }
+ function render(){
+  groups=new Map();
+  for(const marker of clusters.getLayers()){
+   const r=parse(marker.options.raceInfo||'');if(!r)continue;
+   if(!groups.has(r.key))groups.set(r.key,{...r,races:[],markers:[]});
+   const g=groups.get(r.key);g.races.push(r);g.markers.push(marker);
+   if(!marker.options.locationPickerBound){marker.options.locationPickerBound=true;marker.on('click',()=>select(r.key,false));}
+  }
+  const fragment=document.createDocumentFragment();
+  for(const country of [...new Set([...groups.values()].map(g=>g.country))].sort((a,b)=>a==='Россия'?-1:b==='Россия'?1:a.localeCompare(b,'ru'))){
+   const section=document.createElement('section');section.className='geo-region';
+   const heading=document.createElement('h3');heading.textContent=country;
+   const items=[...groups.values()].filter(g=>g.country===country).sort((a,b)=>b.races.length-a.races.length||a.name.localeCompare(b.name,'ru'));
+   const n=items.reduce((sum,g)=>sum+g.races.length,0),count=document.createElement('span');count.textContent=n+' '+plural(n);heading.append(count);
+   const ul=document.createElement('ul');
+   for(const g of items){const li=document.createElement('li'),button=document.createElement('button'),name=document.createElement('span'),number=document.createElement('b');button.type='button';button.className='geo-location';button.dataset.location=g.key;button.setAttribute('aria-pressed',String(g.key===selectedKey));name.textContent=g.name;number.textContent=g.races.length;button.append(name,number);button.addEventListener('click',()=>select(g.key,true));li.append(button);ul.append(li);}
+   section.append(heading,ul);fragment.append(section);
+  }
+  host.replaceChildren(fragment);
+  if(selectedKey&&active&&groups.has(selectedKey))active.setPopupContent(popup(groups.get(selectedKey)));
+ }
+ let queued=false;
+ const original=window.addRaceMapStart;
+ window.addRaceMapStart=function(s){const marker=original(s);if(!queued){queued=true;queueMicrotask(()=>{queued=false;render()})}return marker;};
+ render();
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();
+</script>
+</body></html>
