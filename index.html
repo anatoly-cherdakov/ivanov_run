@@ -2282,4 +2282,13 @@ function init(){
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
 </script>
+
+<style id="HEADER_SPACING_FIX">
+html body{padding-top:14px!important}
+html body main .site-header .site-switch{display:inline-flex!important;gap:9px!important}
+html body main .site-header .site-switch-wrap{display:contents!important}
+</style>
+<style id="STAT_ICON_SPACING_FIX">
+html body main > .site-header + .grid > .card,html body main div.grid.year-stats > button.card.year-filter{padding-left:48px!important}
+</style>
 </body></html>
